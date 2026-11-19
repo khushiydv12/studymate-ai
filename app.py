@@ -85,6 +85,17 @@ def init_db():
 
 init_db()
 client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+def generate_with_fallback(prompt):
+    models = ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash"]
+    last_error = None
+    for model_name in models:
+        try:
+            response = client.models.generate_content(model=model_name, contents=prompt)
+            return response.text
+        except Exception as e:
+            last_error = e
+            continue
+    raise last_error
 
 # 3. Main Hero Section
 col1, col2 = st.columns([1.2, 1], gap="large")
@@ -142,8 +153,7 @@ with tab1:
                 Format it beautifully with markdown.
                 """
                 try:
-                    response = client.models.generate_content(model='gemini-3.5-flash', contents=prompt)
-                    plan_text = response.text
+                    plan_text = generate_with_fallback(prompt)
                     
                     conn = sqlite3.connect('study_planner.db')
                     cursor = conn.cursor()
@@ -178,10 +188,10 @@ with tab2:
             with st.spinner("✍️ Crafting custom practice questions..."):
                 quiz_prompt = f"Create a 5-question multiple-choice practice quiz with answers at the bottom for the topic: {quiz_subject}. Format it clearly."
                 try:
-                    quiz_response = client.models.generate_content(model='gemini-3.5-flash', contents=quiz_prompt)
+                    quiz_text = generate_with_fallback(quiz_prompt)
                     st.success("🎯 Quiz Ready!")
                     st.markdown("---")
-                    st.markdown(quiz_response.text)
+                    st.markdown(quiz_text)
                 except Exception as e:
                     st.error(f"Error: {e}")
         else:
